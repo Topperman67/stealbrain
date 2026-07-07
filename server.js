@@ -11,7 +11,10 @@ const MIME = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css',
 const server = http.createServer((req, res) => {
   let p = decodeURIComponent(req.url.split('?')[0]);
   if (p === '/stats'){
-    res.writeHead(200, { 'Content-Type':'application/json', 'Cache-Control':'no-cache' });
+    // CORS-open: the client may be hosted on a different origin (e.g. Vercel)
+    // than this server (e.g. Render/Railway) when deployed separately.
+    res.writeHead(200, { 'Content-Type':'application/json', 'Cache-Control':'no-cache',
+                         'Access-Control-Allow-Origin':'*' });
     return res.end(JSON.stringify({ online: seats.filter(Boolean).length }));
   }
   if (p === '/') p = '/index.html';

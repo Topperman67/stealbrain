@@ -335,6 +335,12 @@ const BRAINROTS = [
   { name:'La Grande Combinasion',  rarity:'Secret',       cost:1000000, ips:2500, arch:'combin', scale:1.15 },
 ];
 
+// If you host the client (e.g. on Vercel) separately from the multiplayer server
+// (Vercel can't run a persistent WebSocket server — deploy server.js to Render/
+// Railway/Fly.io/a VPS instead), point this at that server's wss:// URL.
+// Leave null to connect same-origin — that's what `node server.js` serves itself.
+const MP_SERVER_URL = null;   // e.g. 'wss://stealbrain-server.up.railway.app/ws'
+
 const SAVE_KEY = 'steal_a_brainrot_save_v1';
 const BELT = { halfW:2.5, halfL:32, topY:0.62, speed:1.7 };
 
@@ -2149,7 +2155,8 @@ const NET = {
       let done=false;
       const fin=v=>{ if(!done){ done=true; res(v); } };
       try{
-        const ws = new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws');
+        const url = MP_SERVER_URL || ((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws');
+        const ws = new WebSocket(url);
         setTimeout(()=>{ if(!done){ try{ws.close();}catch(e){} this.state='offline'; fin(null); } },1500);
         ws.onopen = ()=> ws.send(JSON.stringify({ t:'hello', name:this.myName }));
         ws.onerror = ()=>{ this.state='offline'; fin(null); };
@@ -2935,7 +2942,14 @@ document.getElementById('nameInput').addEventListener('keydown', e=>{
 });
 document.getElementById('nameInput').value = localStorage.getItem('sab_name') || '';
 // live login-screen stats
-if (location.protocol.startsWith('http')){
+if (MP_SERVER_URL){
+  const statsUrl = MP_SERVER_URL.replace(/^ws/,'http').replace(/\/ws$/,'') + '/stats';
+  document.getElementById('srvPill').textContent = 'Server: ' + new URL(statsUrl).host;
+  const pollStats = ()=>fetch(statsUrl).then(r=>r.json())
+    .then(s=>{ document.getElementById('onlineCount').textContent = s.online; })
+    .catch(()=>{ document.getElementById('srvPill').textContent = 'Server: unreachable (solo only)'; });
+  pollStats(); setInterval(()=>{ if (!started) pollStats(); }, 5000);
+} else if (location.protocol.startsWith('http')){
   document.getElementById('srvPill').textContent = 'Server: ' + location.host;
   const pollStats = ()=>fetch('/stats').then(r=>r.json())
     .then(s=>{ document.getElementById('onlineCount').textContent = s.online; })
